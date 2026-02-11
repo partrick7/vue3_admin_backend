@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   vue3_admin_mysql:
     image: registry.cn-shanghai.aliyuncs.com/wangjian3306/mysql:8.0
@@ -11,8 +13,38 @@ services:
       - "3306:3306"
     volumes:
       - ./init-sql/:/docker-entrypoint-initdb.d/
+      - mysql_data:/var/lib/mysql  # 添加持久化存储
+    deploy:  # 添加资源限制
+      resources:
+        limits:
+          memory: 350M
+          cpus: '0.5'
+        reservations:
+          memory: 280M
+          cpus: '0.3'
     command:
       --default-authentication-plugin=mysql_native_password
+      --innodb-buffer-pool-size=64M      # 关键：减少缓冲池大小
+      --innodb-log-buffer-size=8M        # 减少日志缓冲区
+      --max-connections=30               # 限制连接数
+      --performance-schema=OFF           # 关闭性能模式节省内存
+      --skip-name-resolve                # 跳过DNS解析
+      --table-open-cache=200             # 减少表缓存
+      --key-buffer-size=8M               # 减少键缓冲区
+      --query-cache-size=0               # 禁用查询缓存
+      --query-cache-type=0               # 确认禁用查询缓存
+      --tmp-table-size=16M               # 减少临时表大小
+      --max-heap-table-size=16M          # 减少堆表大小
+      --innodb-flush-method=O_DIRECT     # 改进I/O性能
+    healthcheck:  # 添加健康检查
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p$$MYSQL_ROOT_PASSWORD"]
+      timeout: 20s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped  # 修改重启策略
+    networks:
+      - app-network
+
   vue3_admin_backend:
     build:
       context: .
@@ -25,9 +57,29 @@ services:
       VUE3_ADMIN_MYSQL_DATABASE: vue3_admin
       VUE3_ADMIN_MYSQL_PASSWORD: password
       VUE3_ADMIN_MYSQL_HOST: vue3_admin_mysql
+      NODE_OPTIONS: "--max-old-space-size=128"  # 限制Node.js内存
     ports:
       - "10086:10086"
     depends_on:
-      - vue3_admin_mysql
-    links:
-      - vue3_admin_mysql
+      vue3_admin_mysql:
+        condition: service_healthy  # 等待MySQL健康
+    deploy:  # 添加资源限制
+      resources:
+        limits:
+          memory: 200M
+        reservations:
+          memory: 150M
+    volumes:
+      - ./logs:/app/logs  # 添加日志卷
+    command: >
+      sh -c "sleep 5 && npm start"  # 延迟启动确保MySQL就绪
+    networks:
+      - app-network
+
+volumes:
+  mysql_data:  # 定义持久化卷
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge
