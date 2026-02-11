@@ -8,7 +8,7 @@
 
 1. 克隆本项目到本地目录
    ```
-   git clone https://github.com/WangJian3306/vue3_admin_backend.git
+   git clone https://github.com/partrick7/vue3_admin_backend.git
    ```
 2. 使用`docker-compose`一键启动
    ```
