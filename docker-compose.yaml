@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   vue3_admin_mysql:
     image: registry.cn-shanghai.aliyuncs.com/wangjian3306/mysql:8.0
@@ -9,36 +7,29 @@ services:
       MYSQL_DATABASE: vue3_admin
       MYSQL_USER: vue3_admin
       MYSQL_PASSWORD: password
+      # 减少MySQL内存占用的关键配置
+      MYSQL_INITDB_SKIP_TZINFO: "1"  # 跳过时区信息初始化
     ports:
       - "3306:3306"
     volumes:
       - ./init-sql/:/docker-entrypoint-initdb.d/
-      - mysql_data:/var/lib/mysql
-    # 注意：使用标准的resources语法，不是deploy（除非是swarm模式）
-    mem_limit: 350M
-    mem_reservation: 280M
-    cpus: '0.5'
+      # 添加自定义MySQL配置文件
+      - ./mysql-conf.d/:/etc/mysql/conf.d/
     command:
-      - --default-authentication-plugin=mysql_native_password
-      - --innodb-buffer-pool-size=64M
-      - --innodb-log-buffer-size=8M
-      - --max-connections=30
-      - --performance-schema=OFF
-      - --skip-name-resolve
-      - --table-open-cache=200
-      - --key-buffer-size=8M
-      - --query-cache-size=0
-      - --query-cache-type=0
-      - --tmp-table-size=16M
-      - --max-heap-table-size=16M
-      - --innodb-flush-method=O_DIRECT
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-prootpassword"]
-      timeout: 20s
-      retries: 10
-      start_period: 30s
-    restart: unless-stopped
-
+      --default-authentication-plugin=mysql_native_password
+      --innodb-buffer-pool-size=128M        # 减少InnoDB缓冲池大小
+      --innodb-log-file-size=32M            # 减小日志文件大小
+      --max-connections=50                  # 减少最大连接数
+      --table-definition-cache=400          # 减少表定义缓存
+      --table-open-cache=400                # 减少表打开缓存
+      --performance-schema=0                # 禁用性能模式以节省内存
+      --skip-name-resolve                   # 跳过DNS解析
+      --query-cache-size=0                  # 禁用查询缓存
+      --query-cache-type=0
+    # 限制容器内存使用
+    mem_limit: 350m
+    mem_reservation: 256m
+  
   vue3_admin_backend:
     build:
       context: .
@@ -51,20 +42,9 @@ services:
       VUE3_ADMIN_MYSQL_DATABASE: vue3_admin
       VUE3_ADMIN_MYSQL_PASSWORD: password
       VUE3_ADMIN_MYSQL_HOST: vue3_admin_mysql
-      NODE_OPTIONS: "--max-old-space-size=128"
     ports:
       - "10086:10086"
     depends_on:
-      vue3_admin_mysql:
-        condition: service_healthy
-    mem_limit: 200M
-    mem_reservation: 150M
-    volumes:
-      - ./logs:/app/logs
-    command: >
-      sh -c "sleep 5 && npm start"
-
-volumes:
-  mysql_data:
-
-# 注意：不需要显式定义networks，除非有特殊需求
+      - vue3_admin_mysql
+    links:
+      - vue3_admin_mysql
