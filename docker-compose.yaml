@@ -17,14 +17,14 @@ services:
       - ./mysql-conf.d/:/etc/mysql/conf.d/
     command:
       --default-authentication-plugin=mysql_native_password
-      --innodb-buffer-pool-size=128M        # 减少InnoDB缓冲池大小
-      --innodb-log-file-size=32M            # 减小日志文件大小
-      --max-connections=50                  # 减少最大连接数
-      --table-definition-cache=400          # 减少表定义缓存
-      --table-open-cache=400                # 减少表打开缓存
-      --performance-schema=0                # 禁用性能模式以节省内存
-      --skip-name-resolve                   # 跳过DNS解析
-      --query-cache-size=0                  # 禁用查询缓存
+      --innodb-buffer-pool-size=128M        
+      --innodb-log-file-size=32M            
+      --max-connections=50                 
+      --table-definition-cache=400          
+      --table-open-cache=400               
+      --performance-schema=0                
+      --skip-name-resolve                  
+      --query-cache-size=0                 
       --query-cache-type=0
     # 限制容器内存使用
     mem_limit: 350m
